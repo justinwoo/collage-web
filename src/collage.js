@@ -26,6 +26,18 @@ function calculateHybridLayout(allImages) {
   function findBestRowPattern(startIdx) {
     if (startIdx >= allImages.length) return null;
 
+    const remainingImages = allImages.length - startIdx;
+
+    // If only 1 image remaining (REMAINDER), make it full width
+    if (remainingImages === 1) {
+      const img = allImages[startIdx];
+      const type = isLandscape(img) ? 'L' : 'P';
+      return {
+        count: 1,
+        types: [type],
+      };
+    }
+
     const patterns = [];
 
     // Define possible patterns (preserving order)
@@ -58,7 +70,7 @@ function calculateHybridLayout(allImages) {
       }
     }
 
-    // If no patterns found (e.g., only 1 image left), return null
+    // If no patterns found, return null
     if (patterns.length === 0) return null;
 
     // Score each pattern based on space efficiency
