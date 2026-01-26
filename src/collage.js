@@ -14,7 +14,7 @@ function classifyImages(images) {
 }
 
 function calculateHybridLayout(allImages) {
-  const canvasWidth = 1200;
+  const canvasWidth = 2000;
   const spacing = 15;
   const layout = [];
   let currentY = 0;
