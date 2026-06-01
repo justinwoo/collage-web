@@ -16,152 +16,96 @@ function classifyImages(images) {
 function calculateHybridLayout(allImages) {
   const canvasWidth = 2000;
   const spacing = 15;
+  // Two images per row. A featured image breaks out into its own full-width
+  // row unless that would make it taller than this, in which case it's capped
+  // and centered.
+  const MAX_FEATURED_HEIGHT = canvasWidth * 0.75;
+  // How much of an image we're allowed to crop to balance a row. Landscapes
+  // give up their sides, portraits give up their top/bottom (the draw step
+  // center-crops, so the direction is automatic). 0.2 = up to 20%.
+  const MAX_CROP = 0.2;
   const layout = [];
   let currentY = 0;
 
-  // Helper to check orientation
-  const isLandscape = (img) => img.img.width > img.img.height;
+  const aspectOf = (img) => img.img.width / img.img.height;
 
-  // Try to find the best row pattern starting at index i
-  function findBestRowPattern(startIdx) {
-    if (startIdx >= allImages.length) return null;
-
-    const remainingImages = allImages.length - startIdx;
-
-    // If only 1 image remaining (REMAINDER), make it full width
-    if (remainingImages === 1) {
-      const img = allImages[startIdx];
-      const type = isLandscape(img) ? 'L' : 'P';
-      return {
-        count: 1,
-        types: [type],
-      };
+  // How many images go in the row starting at startIdx: two, unless the next
+  // image is featured (its own row) or it's the last odd image left.
+  function rowCountAt(startIdx) {
+    if (startIdx >= allImages.length) return 0;
+    if (allImages[startIdx].featured) return 1;
+    // Pair with the next image only if it's also non-featured.
+    if (
+      startIdx + 1 < allImages.length &&
+      !allImages[startIdx + 1].featured
+    ) {
+      return 2;
     }
-
-    const patterns = [];
-
-    // Define possible patterns (preserving order)
-    // Pattern: { count: number of images, types: array of 'L' or 'P' }
-
-    // Two image patterns
-    if (startIdx + 1 < allImages.length) {
-      const img0 = allImages[startIdx];
-      const img1 = allImages[startIdx + 1];
-      const type0 = isLandscape(img0) ? 'L' : 'P';
-      const type1 = isLandscape(img1) ? 'L' : 'P';
-
-      patterns.push({
-        count: 2,
-        types: [type0, type1],
-      });
-    }
-
-    // Three image patterns (only portraits)
-    if (startIdx + 2 < allImages.length) {
-      const img0 = allImages[startIdx];
-      const img1 = allImages[startIdx + 1];
-      const img2 = allImages[startIdx + 2];
-
-      if (!isLandscape(img0) && !isLandscape(img1) && !isLandscape(img2)) {
-        patterns.push({
-          count: 3,
-          types: ['P', 'P', 'P'],
-        });
-      }
-    }
-
-    // If no patterns found, return null
-    if (patterns.length === 0) return null;
-
-    // Score each pattern based on space efficiency
-    let bestPattern = patterns[0];
-    let bestScore = -Infinity;
-
-    for (const pattern of patterns) {
-      const score = scorePattern(startIdx, pattern);
-      if (score > bestScore) {
-        bestScore = score;
-        bestPattern = pattern;
-      }
-    }
-
-    return bestPattern;
-  }
-
-  // Score a pattern based on how well it uses the canvas width
-  function scorePattern(startIdx, pattern) {
-    const images = allImages.slice(startIdx, startIdx + pattern.count);
-
-    // Calculate total aspect ratio weight
-    let totalAspectRatio = 0;
-    for (const img of images) {
-      totalAspectRatio += img.img.width / img.img.height;
-    }
-
-    // Available width after spacing
-    const availableWidth = canvasWidth - (pattern.count - 1) * spacing;
-
-    // Target height based on even width distribution
-    const itemWidth = availableWidth / pattern.count;
-
-    // Calculate actual heights needed
-    let maxHeight = 0;
-    let totalHeightVariance = 0;
-
-    for (const img of images) {
-      const aspectRatio = img.img.width / img.img.height;
-      const height = itemWidth / aspectRatio;
-      maxHeight = Math.max(maxHeight, height);
-      totalHeightVariance += Math.abs(height - maxHeight);
-    }
-
-    // Prefer patterns with:
-    // 1. More images per row (better space usage)
-    // 2. Similar heights (less wasted space)
-    // 3. Mixed orientations when it makes sense
-
-    const countBonus = pattern.count * 100;
-    const heightUniformityBonus = 1000 / (1 + totalHeightVariance);
-    const mixedOrientationBonus = (new Set(pattern.types).size > 1) ? 50 : 0;
-
-    return countBonus + heightUniformityBonus + mixedOrientationBonus;
+    return 1;
   }
 
   // Build layout row by row
   let i = 0;
   while (i < allImages.length) {
-    const pattern = findBestRowPattern(i);
-    if (!pattern) break;
+    // Featured image: full-width row of its own, height-capped + centered.
+    if (allImages[i].featured) {
+      const image = allImages[i];
+      const aspect = aspectOf(image);
+      let width = canvasWidth;
+      let height = canvasWidth / aspect;
+      let x = 0;
 
-    const images = allImages.slice(i, i + pattern.count);
+      if (height > MAX_FEATURED_HEIGHT) {
+        height = MAX_FEATURED_HEIGHT;
+        width = Math.round(height * aspect);
+        x = Math.floor((canvasWidth - width) / 2);
+      }
+
+      layout.push({
+        image,
+        x,
+        y: currentY,
+        width,
+        height: Math.round(height),
+      });
+
+      currentY += Math.round(height) + spacing;
+      i += 1;
+      continue;
+    }
+
+    const rowCount = rowCountAt(i);
+    if (rowCount === 0) break;
+
+    const images = allImages.slice(i, i + rowCount);
     const numImages = images.length;
-
-    // Calculate widths proportional to aspect ratios for better space usage
-    const totalAspectRatio = images.reduce(
-      (sum, img) => sum + img.img.width / img.img.height,
-      0
-    );
-
     const availableWidth = canvasWidth - (numImages - 1) * spacing;
 
-    // Assign widths proportionally to aspect ratios
-    const widths = images.map((img) => {
-      const aspectRatio = img.img.width / img.img.height;
-      return Math.floor((aspectRatio / totalAspectRatio) * availableWidth);
+    // Natural aspect of each image, and a shared row target (their geometric
+    // mean). Each cell is allowed to drift from its natural aspect toward the
+    // target, but no further than MAX_CROP. Pulling toward a common aspect
+    // makes the row's widths balanced instead of letting one wide photo
+    // dominate; the leftover is cropped (sides for landscape, top/bottom for
+    // portrait) by the draw step.
+    const naturalAspects = images.map(aspectOf);
+    const logMean =
+      naturalAspects.reduce((sum, a) => sum + Math.log(a), 0) / numImages;
+    const target = Math.exp(logMean);
+
+    const cellAspects = naturalAspects.map((a) => {
+      const low = a * (1 - MAX_CROP);
+      const high = a / (1 - MAX_CROP);
+      return Math.min(Math.max(target, low), high);
     });
 
-    // Adjust last width to account for rounding
+    // At a shared row height, width is proportional to cell aspect. Solve the
+    // height that makes the cells exactly fill the available width.
+    const totalCellAspect = cellAspects.reduce((sum, c) => sum + c, 0);
+    const rowHeight = Math.round(availableWidth / totalCellAspect);
+
+    const widths = cellAspects.map((c) => Math.floor(c * rowHeight));
     const totalCalculatedWidth = widths.reduce((a, b) => a + b, 0);
     widths[widths.length - 1] += availableWidth - totalCalculatedWidth;
-
-    // Calculate row height to fit all images
-    let rowHeight = 0;
-    for (let idx = 0; idx < images.length; idx++) {
-      const img = images[idx];
-      const aspectRatio = img.img.width / img.img.height;
-      const height = Math.floor(widths[idx] / aspectRatio);
-      rowHeight = Math.max(rowHeight, height);
-    }
 
     // Place images in the row
     let currentX = 0;
@@ -177,7 +121,7 @@ function calculateHybridLayout(allImages) {
     }
 
     currentY += rowHeight + spacing;
-    i += pattern.count;
+    i += rowCount;
   }
 
   const canvasHeight = currentY > 0 ? currentY - spacing : 0;

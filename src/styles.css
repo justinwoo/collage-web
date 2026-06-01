@@ -296,9 +296,47 @@ canvas {
   box-shadow: 0 0 0 2px var(--color-purple);
 }
 
+.thumbnail.featured {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px #f59e0b;
+}
+
 .thumbnail img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.thumb-btn {
+  position: absolute;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  font-size: 0.8rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumb-btn:active:not(:disabled) {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.thumb-star {
+  left: 2px;
+}
+
+.thumb-delete {
+  right: 2px;
+  font-size: 1rem;
+}
+
+.thumbnail.featured .thumb-star {
+  background: #f59e0b;
 }

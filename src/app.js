@@ -29,8 +29,21 @@ function updateProgress(current, total, message) {
   elements.progressFill.style.width = `${(current / total) * 100}%`;
 }
 
+function updateSelectButtonLabel() {
+  if (state.isProcessing) return;
+  const label = state.images.length > 0 ? 'Add Photos' : 'Select Photos';
+  elements.selectBtn.innerHTML = `<span>📤</span><span>${label}</span>`;
+}
+
+function refreshStats() {
+  const { landscape, portrait } = classifyImages(state.images);
+  elements.statsMain.textContent = `${state.images.length} photo${state.images.length !== 1 ? 's' : ''} selected`;
+  elements.statsDetail.textContent = `${landscape.length} landscape, ${portrait.length} portrait`;
+}
+
 function renderThumbnails() {
   elements.thumbnailContainer.innerHTML = '';
+  updateSelectButtonLabel();
 
   if (state.images.length === 0) {
     elements.thumbnailContainer.classList.add('hidden');
@@ -41,18 +54,69 @@ function renderThumbnails() {
 
   state.images.forEach((imgData, index) => {
     const thumbDiv = document.createElement('div');
-    thumbDiv.className = 'thumbnail';
+    thumbDiv.className = imgData.featured ? 'thumbnail featured' : 'thumbnail';
     thumbDiv.dataset.index = index;
+    if (index === state.selectedThumbnailIndex) {
+      thumbDiv.classList.add('selected');
+    }
 
     const img = document.createElement('img');
     img.src = imgData.thumbSrc;
     img.alt = `Image ${index + 1}`;
-
     thumbDiv.appendChild(img);
+
+    const featureBtn = document.createElement('button');
+    featureBtn.className = 'thumb-btn thumb-star';
+    featureBtn.textContent = imgData.featured ? '★' : '☆';
+    featureBtn.title = imgData.featured ? 'Unfeature' : 'Feature (own row)';
+    featureBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleFeatured(index);
+    });
+    thumbDiv.appendChild(featureBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'thumb-btn thumb-delete';
+    deleteBtn.textContent = '×';
+    deleteBtn.title = 'Delete';
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteImage(index);
+    });
+    thumbDiv.appendChild(deleteBtn);
+
     thumbDiv.addEventListener('click', () => handleThumbnailClick(index));
 
     elements.thumbnailContainer.appendChild(thumbDiv);
   });
+}
+
+function toggleFeatured(index) {
+  state.images[index].featured = !state.images[index].featured;
+  state.canvasReady = false;
+  renderThumbnails();
+}
+
+function deleteImage(index) {
+  state.images.splice(index, 1);
+  state.canvasReady = false;
+
+  if (state.selectedThumbnailIndex === index) {
+    state.selectedThumbnailIndex = null;
+  } else if (
+    state.selectedThumbnailIndex !== null &&
+    state.selectedThumbnailIndex > index
+  ) {
+    state.selectedThumbnailIndex -= 1;
+  }
+
+  if (state.images.length === 0) {
+    clearImages();
+    return;
+  }
+
+  renderThumbnails();
+  refreshStats();
 }
 
 function handleThumbnailClick(index) {
@@ -74,9 +138,7 @@ function handleThumbnailClick(index) {
     state.canvasReady = false;
 
     renderThumbnails();
-
-    const { landscape, portrait } = classifyImages(state.images);
-    elements.statsDetail.textContent = `${landscape.length} landscape, ${portrait.length} portrait`;
+    refreshStats();
   }
 }
 
@@ -132,6 +194,7 @@ async function handleFileSelect(e) {
             img: img,
             file: file,
             lastModified: file.lastModified,
+            featured: false,
           });
           resolve();
         };
@@ -145,24 +208,24 @@ async function handleFileSelect(e) {
     await new Promise((r) => setTimeout(r, 10));
   }
 
+  // Sort only this batch, then append so existing order/arrangement is kept.
   loadedImages.sort((a, b) => a.lastModified - b.lastModified);
+  state.images.push(...loadedImages);
 
-  state.images = loadedImages;
   state.isProcessing = false;
   state.canvasReady = false;
 
+  // Reset so re-selecting the same files still fires the change event.
+  elements.fileInput.value = '';
+
   elements.progressContainer.classList.add('hidden');
   elements.selectBtn.disabled = false;
-  elements.selectBtn.innerHTML =
-    '<span>📤</span><span>Select Photos</span>';
   elements.generateBtn.disabled = false;
   elements.clearBtn.disabled = false;
   elements.emptyState.classList.add('hidden');
 
-  const { landscape, portrait } = classifyImages(state.images);
   elements.stats.classList.remove('hidden');
-  elements.statsMain.textContent = `${state.images.length} photo${state.images.length !== 1 ? 's' : ''} selected`;
-  elements.statsDetail.textContent = `${landscape.length} landscape, ${portrait.length} portrait`;
+  refreshStats();
 
   renderThumbnails();
 }
@@ -304,6 +367,8 @@ function clearImages() {
   elements.emptyState.classList.remove('hidden');
   elements.thumbnailContainer.classList.add('hidden');
   elements.thumbnailContainer.innerHTML = '';
+  elements.fileInput.value = '';
+  updateSelectButtonLabel();
 
   const canvas = elements.canvas;
   const ctx = canvas.getContext('2d');
