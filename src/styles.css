@@ -90,6 +90,13 @@ h1 {
   text-align: center;
 }
 
+.subtitle .version {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
 .card {
   background: white;
   border-radius: var(--radius-md);
@@ -296,11 +303,6 @@ canvas {
   box-shadow: 0 0 0 2px var(--color-purple);
 }
 
-.thumbnail.featured {
-  border-color: #f59e0b;
-  box-shadow: 0 0 0 2px #f59e0b;
-}
-
 .thumbnail img {
   width: 100%;
   height: 100%;
@@ -328,15 +330,7 @@ canvas {
   background: rgba(0, 0, 0, 0.8);
 }
 
-.thumb-star {
-  left: 2px;
-}
-
 .thumb-delete {
   right: 2px;
   font-size: 1rem;
-}
-
-.thumbnail.featured .thumb-star {
-  background: #f59e0b;
 }

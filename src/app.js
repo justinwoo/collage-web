@@ -54,7 +54,7 @@ function renderThumbnails() {
 
   state.images.forEach((imgData, index) => {
     const thumbDiv = document.createElement('div');
-    thumbDiv.className = imgData.featured ? 'thumbnail featured' : 'thumbnail';
+    thumbDiv.className = 'thumbnail';
     thumbDiv.dataset.index = index;
     if (index === state.selectedThumbnailIndex) {
       thumbDiv.classList.add('selected');
@@ -64,16 +64,6 @@ function renderThumbnails() {
     img.src = imgData.thumbSrc;
     img.alt = `Image ${index + 1}`;
     thumbDiv.appendChild(img);
-
-    const featureBtn = document.createElement('button');
-    featureBtn.className = 'thumb-btn thumb-star';
-    featureBtn.textContent = imgData.featured ? '★' : '☆';
-    featureBtn.title = imgData.featured ? 'Unfeature' : 'Feature (own row)';
-    featureBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleFeatured(index);
-    });
-    thumbDiv.appendChild(featureBtn);
 
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'thumb-btn thumb-delete';
@@ -89,12 +79,6 @@ function renderThumbnails() {
 
     elements.thumbnailContainer.appendChild(thumbDiv);
   });
-}
-
-function toggleFeatured(index) {
-  state.images[index].featured = !state.images[index].featured;
-  state.canvasReady = false;
-  renderThumbnails();
 }
 
 function deleteImage(index) {
@@ -194,7 +178,6 @@ async function handleFileSelect(e) {
             img: img,
             file: file,
             lastModified: file.lastModified,
-            featured: false,
           });
           resolve();
         };
